@@ -2,22 +2,30 @@ const cors = require('cors');
 
 const corsOptions = {
   origin: function (origin, callback) {
+    console.log('CORS Origin check:', origin);
+    console.log('ALLOWED_ORIGINS env var:', process.env.ALLOWED_ORIGINS);
+    
     // Allow requests with no origin (like mobile apps or Postman)
     if (!origin) return callback(null, true);
 
     const allowedOrigins = process.env.ALLOWED_ORIGINS
-      ? process.env.ALLOWED_ORIGINS.split(',')
+      ? process.env.ALLOWED_ORIGINS.split(',').map(url => url.trim())
       : ['http://localhost:3000'];
+
+    console.log('Parsed allowed origins:', allowedOrigins);
 
     // Always allow localhost origins for development
     const isLocalhost =
       origin.includes('localhost') || origin.includes('127.0.0.1');
     if (isLocalhost) return callback(null, true);
 
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    if (allowedOrigins.includes(origin)) {
+      console.log('Origin allowed:', origin);
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      console.log('Origin blocked:', origin);
+      console.log('Allowed origins:', allowedOrigins);
+      callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
     }
   },
   credentials: true, // Allow cookies to be sent

@@ -22,11 +22,23 @@ app.use(securityMiddleware);
 app.use(corsConfig);
 app.use(limiter);
 
+// Handle preflight requests explicitly
+app.options('*', corsConfig);
+
 app.use('/users', require('./routes/userRoute'));
 app.use('/clients', require('./routes/clientRoute'));
 
 app.get('/', (req, res) => {
   res.send('Welcome to node_study');
+});
+
+// CORS test endpoint
+app.get('/cors-test', (req, res) => {
+  res.json({
+    message: 'CORS is working!',
+    origin: req.headers.origin,
+    timestamp: new Date().toISOString()
+  });
 });
 
 app.listen(PORT, () => {
