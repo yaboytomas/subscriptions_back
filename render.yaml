@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: subscriptions-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    # Add your environment variables here or set them in Render dashboard
+    # - key: MONGODB_URI
+    #   sync: false  # Set this in Render dashboard for security
+    # - key: JWT_SECRET
+    #   sync: false  # Set this in Render dashboard for security

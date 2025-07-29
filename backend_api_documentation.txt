@@ -1,0 +1,367 @@
+BACKEND API DOCUMENTATION FOR FRONTEND DEVELOPMENT
+==================================================
+
+BASE URL
+--------
+http://localhost:3000
+
+AUTHENTICATION
+--------------
+- Token Format: Bearer token in Authorization header
+- Token Storage: Store in localStorage after login/register
+- Token Removal: Remove from localStorage on logout
+
+API ENDPOINTS
+=============
+
+USER MANAGEMENT (/users)
+-----------------------
+
+1. Register User
+   URL: POST /users/registerUser
+   Body:
+   {
+     "name": "string (2-50 chars)",
+     "email": "string (unique)",
+     "password": "string"
+   }
+   Response:
+   {
+     "_id": "user_id",
+     "name": "user_name",
+     "email": "user_email",
+     "token": "jwt_token"
+   }
+
+2. Login User
+   URL: POST /users/loginUser
+   Body:
+   {
+     "email": "string",
+     "password": "string"
+   }
+   Response: Same as register
+
+3. Logout User
+   URL: POST /users/logoutUser
+   Headers: Authorization: Bearer <token>
+   Frontend Action: Remove token from localStorage
+
+4. Get User Profile
+   URL: GET /users/getProfile
+   Headers: Authorization: Bearer <token>
+   Response:
+   {
+     "_id": "user_id",
+     "name": "user_name",
+     "email": "user_email"
+   }
+
+5. Forgot Password
+   URL: POST /users/forgot-password
+   Body:
+   {
+     "email": "string"
+   }
+
+6. Reset Password
+   URL: POST /users/reset-password/:token
+   Body:
+   {
+     "password": "new_password"
+   }
+
+CLIENT MANAGEMENT (/clients)
+---------------------------
+All client endpoints require authentication
+
+1. Create Client
+   URL: POST /clients
+   Headers: Authorization: Bearer <token>
+   Body:
+   {
+     "name": "string (2-50 chars)",
+     "email": "string (unique)",
+     "phone": "string (10-15 chars)",
+     "company": "string (2-100 chars)",
+     "subscriptionRenewalDate": "date",
+     "subscriptionAmount": "number (min 0)",
+     "notes": "string (optional, max 500 chars)"
+   }
+
+2. Get All Clients
+   URL: GET /clients
+   Headers: Authorization: Bearer <token>
+
+3. Get Client by ID
+   URL: GET /clients/:id
+   Headers: Authorization: Bearer <token>
+
+4. Get Client by Email
+   URL: GET /clients/email/:email
+   Headers: Authorization: Bearer <token>
+
+5. Update Client
+   URL: PUT /clients/:id
+   Headers: Authorization: Bearer <token>
+   Body: Same as create (all fields required)
+
+6. Patch Client
+   URL: PATCH /clients/:id
+   Headers: Authorization: Bearer <token>
+   Body: Partial update (only fields to update)
+
+7. Delete Client
+   URL: DELETE /clients/:id
+   Headers: Authorization: Bearer <token>
+
+ERROR RESPONSES
+--------------
+All endpoints return consistent error format:
+{
+  "message": "Error description"
+}
+
+CORS CONFIGURATION
+------------------
+- Backend allows localhost origins
+- Credentials enabled
+- Methods: GET, POST, PUT, DELETE, OPTIONS
+- Headers: Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma
+
+RATE LIMITING
+-------------
+- Authentication endpoints have specific rate limits
+- All client endpoints have rate limiting
+- Handle 429 status codes appropriately
+
+FRONTEND IMPLEMENTATION TIPS
+===========================
+
+1. Token Management:
+   // Store token after login
+   localStorage.setItem('token', response.token);
+   
+   // Add to requests
+   headers: {
+     'Authorization': `Bearer ${localStorage.getItem('token')}`,
+     'Content-Type': 'application/json'
+   }
+   
+   // Remove on logout
+   localStorage.removeItem('token');
+
+2. Error Handling:
+   - Handle 401 for invalid/expired tokens
+   - Handle 429 for rate limiting
+   - Handle 400 for validation errors
+
+3. Date Format:
+   - Send dates in ISO format: "2024-01-15T00:00:00.000Z"
+
+4. Environment Variables:
+   - Backend runs on port 3000 by default
+   - Use environment variables for API URL in production
+
+SAMPLE FRONTEND API SERVICE
+===========================
+
+const API_BASE_URL = 'http://localhost:3000';
+
+const apiService = {
+  // Auth methods
+  login: async (email, password) => {
+    const response = await fetch(`${API_BASE_URL}/users/loginUser`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    return response.json();
+  },
+  
+  register: async (name, email, password) => {
+    const response = await fetch(`${API_BASE_URL}/users/registerUser`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password })
+    });
+    return response.json();
+  },
+  
+  logout: async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/users/logoutUser`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    localStorage.removeItem('token');
+    return response.json();
+  },
+  
+  getProfile: async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/users/getProfile`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.json();
+  },
+  
+  forgotPassword: async (email) => {
+    const response = await fetch(`${API_BASE_URL}/users/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    return response.json();
+  },
+  
+  resetPassword: async (token, password) => {
+    const response = await fetch(`${API_BASE_URL}/users/reset-password/${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    return response.json();
+  },
+  
+  // Client methods
+  getClients: async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/clients`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.json();
+  },
+  
+  getClientById: async (id) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/clients/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.json();
+  },
+  
+  getClientByEmail: async (email) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/clients/email/${email}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.json();
+  },
+  
+  createClient: async (clientData) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/clients`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(clientData)
+    });
+    return response.json();
+  },
+  
+  updateClient: async (id, clientData) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/clients/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(clientData)
+    });
+    return response.json();
+  },
+  
+  patchClient: async (id, clientData) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/clients/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(clientData)
+    });
+    return response.json();
+  },
+  
+  deleteClient: async (id) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/clients/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.json();
+  }
+};
+
+DATA MODELS
+===========
+
+User Model:
+{
+  _id: ObjectId,
+  name: String (2-50 chars, required),
+  email: String (unique, required),
+  password: String (hashed, required),
+  resetPasswordToken: String,
+  resetPasswordExpires: Date,
+  createdAt: Date,
+  updatedAt: Date
+}
+
+Client Model:
+{
+  _id: ObjectId,
+  name: String (2-50 chars, required),
+  email: String (unique, required),
+  phone: String (10-15 chars, required),
+  company: String (2-100 chars, required),
+  subscriptionRenewalDate: Date (required),
+  subscriptionAmount: Number (min 0, required),
+  notes: String (max 500 chars, optional),
+  createdAt: Date,
+  updatedAt: Date
+}
+
+BACKEND TECHNOLOGIES
+===================
+- Node.js with Express
+- MongoDB with Mongoose
+- JWT for authentication
+- bcryptjs for password hashing
+- nodemailer for email sending
+- express-rate-limit for rate limiting
+- helmet for security headers
+- cors for cross-origin requests
+
+ENVIRONMENT VARIABLES NEEDED
+===========================
+- MONGODB_URI: MongoDB connection string
+- JWT_SECRET: Secret for JWT token signing
+- ALLOWED_ORIGINS: Comma-separated list of allowed origins
+- PORT: Server port (default: 3000)
+- Email configuration for nodemailer (SMTP settings)
+
+This documentation provides everything needed to create a frontend that connects to your backend API. 
