@@ -160,7 +160,7 @@ exports.getClients = async (req, res) => {
 exports.getClientById = async (req, res) => {
   const { id } = req.params;
   try {
-    const client = await Client.findById(id);
+    const client = await Client.findById(id).populate('orders');
     if (!client) {
       return res.status(404).json({ message: 'Client not found' });
     }

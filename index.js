@@ -7,14 +7,18 @@ const securityMiddleware = require('./middleware/security');
 const { limiter } = require('./middleware/rateLimiter');
 const PORT = process.env.PORT || 3000;
 
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => {
+// Connect to MongoDB
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log('MongoDB connected !');
-  })
-  .catch((err) => {
+  } catch (err) {
     console.error('MongoDB connection error:', err);
-  });
+    process.exit(1); // Exit if can't connect to DB
+  }
+};
+
+connectDB();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -27,19 +31,12 @@ app.options('*', corsConfig);
 
 app.use('/users', require('./routes/userRoute'));
 app.use('/clients', require('./routes/clientRoute'));
+app.use('/orders', require('./routes/orderRoute'));
 
 app.get('/', (req, res) => {
   res.send('Welcome to node_study');
 });
 
-// CORS test endpoint
-app.get('/cors-test', (req, res) => {
-  res.json({
-    message: 'CORS is working!',
-    origin: req.headers.origin,
-    timestamp: new Date().toISOString()
-  });
-});
 
 app.listen(PORT, () => {
   console.log(`This bitch is running on http://localhost:${PORT}`);

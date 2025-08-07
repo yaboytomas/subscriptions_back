@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const cors = require('cors');
 
 const corsOptions = {
@@ -10,7 +12,7 @@ const corsOptions = {
 
     const allowedOrigins = process.env.ALLOWED_ORIGINS
       ? process.env.ALLOWED_ORIGINS.split(',').map(url => url.trim())
-      : ['http://localhost:3000'];
+      : ['http://localhost:3000', 'https://ordenapro.zabotec.com/'];
 
     console.log('Parsed allowed origins:', allowedOrigins);
 
@@ -18,6 +20,13 @@ const corsOptions = {
     const isLocalhost =
       origin.includes('localhost') || origin.includes('127.0.0.1');
     if (isLocalhost) return callback(null, true);
+
+    // Allow any Vercel deployment of your app
+    const isVercelApp = origin.endsWith('.vercel.app') && origin.includes('subscriptions');
+    if (isVercelApp) {
+      console.log('Vercel origin allowed:', origin);
+      return callback(null, true);
+    }
 
     if (allowedOrigins.includes(origin)) {
       console.log('Origin allowed:', origin);

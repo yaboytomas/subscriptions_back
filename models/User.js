@@ -68,4 +68,22 @@ userSchema.methods.generateResetToken = function () {
   return resetToken;
 };
 
+// Virtual to get orders created by this user
+userSchema.virtual('ordersCreated', {
+  ref: 'Order',
+  localField: '_id',
+  foreignField: 'createdBy'
+});
+
+// Virtual to get orders assigned to this user
+userSchema.virtual('ordersAssigned', {
+  ref: 'Order',
+  localField: '_id',
+  foreignField: 'assignedTo'
+});
+
+// Ensure virtual fields are serialized
+userSchema.set('toJSON', { virtuals: true });
+userSchema.set('toObject', { virtuals: true });
+
 module.exports = mongoose.model('User', userSchema);

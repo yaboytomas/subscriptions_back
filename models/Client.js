@@ -33,11 +33,11 @@ const clientSchema = new mongoose.Schema(
     },
     subscriptionRenewalDate: {
       type: Date,
-      required: true,
+      required: false,
     },
     subscriptionAmount: {
       type: Number,
-      required: true,
+      required: false,
       min: 0,
     },
     notes: {
@@ -50,5 +50,16 @@ const clientSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Virtual to get orders for this client
+clientSchema.virtual('orders', {
+  ref: 'Order',
+  localField: '_id',
+  foreignField: 'client'
+});
+
+// Ensure virtual fields are serialized
+clientSchema.set('toJSON', { virtuals: true });
+clientSchema.set('toObject', { virtuals: true });
 
 module.exports = mongoose.model('Client', clientSchema);
