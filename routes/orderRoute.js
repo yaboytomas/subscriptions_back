@@ -1,193 +1,175 @@
 const express = require('express');
 const router = express.Router();
-const {
-  createOrder,
-  getAllOrders,
-  getOrderById,
-  updateOrder,
-  deleteOrder,
-  getOrdersByClient,
-  updateOrderStatus,
-  getOrderStats
-} = require('../controllers/orderController');
+const Order = require('../models/Order');
+const Client = require('../models/Client');
 const auth = require('../middleware/auth');
-const { body, param } = require('express-validator');
-const validation = require('../middleware/validation');
+const { body, param, validationResult } = require('express-validator');
 
-// Validation rules for creating an order
+// Simple validation middleware
+const validate = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  next();
+};
+
+// Create a new order
+const createOrder = async (req, res) => {
+  try {
+    const {
+      client,
+      title,
+      description,
+      category,
+      priority,
+      estimatedCost,
+      estimatedDuration,
+      scheduledDate,
+      dueDate,
+      materials,
+      notes,
+      internalNotes,
+      assignedTo
+    } = req.body;
+
+    // Validate required fields
+    if (!client || !title || !description || !category || !priority) {
+      return res.status(400).json({
+        message: 'Client, title, description, category, and priority are required'
+      });
+    }
+
+    // Verify client exists
+    const clientExists = await Client.findById(client);
+    if (!clientExists) {
+      return res.status(404).json({
+        message: 'Client not found'
+      });
+    }
+
+    const order = new Order({
+      client,
+      createdBy: req.user.userId,
+      assignedTo: assignedTo || req.user.userId,
+      title,
+      description,
+      category,
+      priority,
+      estimatedCost,
+      estimatedDuration,
+      scheduledDate,
+      dueDate,
+      materials: materials || [],
+      notes,
+      internalNotes
+    });
+
+    await order.save();
+    await order.populate(['client', 'createdBy', 'assignedTo']);
+
+    res.status(201).json({
+      message: 'Order created successfully',
+      order
+    });
+  } catch (error) {
+    console.error('Error creating order:', error);
+    res.status(500).json({
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Get all orders
+const getAllOrders = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      priority,
+      category,
+      client
+    } = req.query;
+
+    const filter = {};
+    if (status) filter.status = status;
+    if (priority) filter.priority = priority;
+    if (category) filter.category = category;
+    if (client) filter.client = client;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const orders = await Order.find(filter)
+      .populate('client', 'name email company')
+      .populate('createdBy', 'name email')
+      .populate('assignedTo', 'name email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const totalOrders = await Order.countDocuments(filter);
+
+    res.status(200).json({
+      orders,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(totalOrders / parseInt(limit)),
+        totalOrders
+      }
+    });
+  } catch (error) {
+    console.error('Error getting orders:', error);
+    res.status(500).json({
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Get order by ID
+const getOrderById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const order = await Order.findById(id)
+      .populate('client')
+      .populate('createdBy', 'name email')
+      .populate('assignedTo', 'name email');
+
+    if (!order) {
+      return res.status(404).json({
+        message: 'Order not found'
+      });
+    }
+
+    res.status(200).json({ order });
+  } catch (error) {
+    console.error('Error getting order:', error);
+    res.status(500).json({
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Validation rules
 const createOrderValidation = [
-  body('client')
-    .isMongoId()
-    .withMessage('Valid client ID is required'),
-  body('title')
-    .trim()
-    .isLength({ min: 3, max: 100 })
-    .withMessage('Title must be between 3 and 100 characters'),
-  body('description')
-    .trim()
-    .isLength({ min: 10, max: 1000 })
-    .withMessage('Description must be between 10 and 1000 characters'),
-  body('category')
-    .isIn(['maintenance', 'repair', 'installation', 'consultation', 'subscription', 'other'])
-    .withMessage('Invalid category'),
-  body('priority')
-    .isIn(['low', 'medium', 'high', 'urgent'])
-    .withMessage('Invalid priority'),
-  body('estimatedCost')
-    .optional()
-    .isNumeric()
-    .withMessage('Estimated cost must be a number'),
-  body('estimatedDuration')
-    .optional()
-    .isNumeric()
-    .withMessage('Estimated duration must be a number'),
-  body('scheduledDate')
-    .optional()
-    .isISO8601()
-    .withMessage('Invalid scheduled date format'),
-  body('dueDate')
-    .optional()
-    .isISO8601()
-    .withMessage('Invalid due date format'),
-  body('assignedTo')
-    .optional()
-    .isMongoId()
-    .withMessage('Valid assigned user ID is required')
+  body('client').isMongoId().withMessage('Valid client ID is required'),
+  body('title').trim().isLength({ min: 3, max: 100 }).withMessage('Title must be between 3 and 100 characters'),
+  body('description').trim().isLength({ min: 10, max: 1000 }).withMessage('Description must be between 10 and 1000 characters'),
+  body('category').isIn(['maintenance', 'repair', 'installation', 'consultation', 'subscription', 'other']).withMessage('Invalid category'),
+  body('priority').isIn(['low', 'medium', 'high', 'urgent']).withMessage('Invalid priority')
 ];
 
-// Validation rules for updating an order
-const updateOrderValidation = [
-  body('title')
-    .optional()
-    .trim()
-    .isLength({ min: 3, max: 100 })
-    .withMessage('Title must be between 3 and 100 characters'),
-  body('description')
-    .optional()
-    .trim()
-    .isLength({ min: 10, max: 1000 })
-    .withMessage('Description must be between 10 and 1000 characters'),
-  body('category')
-    .optional()
-    .isIn(['maintenance', 'repair', 'installation', 'consultation', 'subscription', 'other'])
-    .withMessage('Invalid category'),
-  body('priority')
-    .optional()
-    .isIn(['low', 'medium', 'high', 'urgent'])
-    .withMessage('Invalid priority'),
-  body('status')
-    .optional()
-    .isIn(['pending', 'in-progress', 'completed', 'cancelled', 'on-hold'])
-    .withMessage('Invalid status'),
-  body('estimatedCost')
-    .optional()
-    .isNumeric()
-    .withMessage('Estimated cost must be a number'),
-  body('actualCost')
-    .optional()
-    .isNumeric()
-    .withMessage('Actual cost must be a number'),
-  body('estimatedDuration')
-    .optional()
-    .isNumeric()
-    .withMessage('Estimated duration must be a number'),
-  body('actualDuration')
-    .optional()
-    .isNumeric()
-    .withMessage('Actual duration must be a number'),
-  body('assignedTo')
-    .optional()
-    .isMongoId()
-    .withMessage('Valid assigned user ID is required')
-];
-
-// Validation for updating order status
-const updateStatusValidation = [
-  body('status')
-    .isIn(['pending', 'in-progress', 'completed', 'cancelled', 'on-hold'])
-    .withMessage('Invalid status'),
-  body('comment')
-    .optional()
-    .trim()
-    .isLength({ max: 500 })
-    .withMessage('Comment must not exceed 500 characters')
-];
-
-// Validation for MongoDB ObjectId parameters
 const mongoIdValidation = [
-  param('id')
-    .isMongoId()
-    .withMessage('Invalid order ID'),
-];
-
-const clientIdValidation = [
-  param('clientId')
-    .isMongoId()
-    .withMessage('Invalid client ID'),
+  param('id').isMongoId().withMessage('Invalid order ID')
 ];
 
 // Routes
-
-// POST /api/orders - Create a new order
-router.post('/', 
-  auth, 
-  createOrderValidation, 
-  validation, 
-  createOrder
-);
-
-// GET /api/orders - Get all orders with filtering and pagination
-router.get('/', 
-  auth, 
-  getAllOrders
-);
-
-// GET /api/orders/stats - Get order statistics for dashboard
-router.get('/stats', 
-  auth, 
-  getOrderStats
-);
-
-// GET /api/orders/:id - Get single order by ID
-router.get('/:id', 
-  auth, 
-  mongoIdValidation, 
-  validation, 
-  getOrderById
-);
-
-// PUT /api/orders/:id - Update order
-router.put('/:id', 
-  auth, 
-  mongoIdValidation, 
-  updateOrderValidation, 
-  validation, 
-  updateOrder
-);
-
-// PATCH /api/orders/:id/status - Update order status
-router.patch('/:id/status', 
-  auth, 
-  mongoIdValidation, 
-  updateStatusValidation, 
-  validation, 
-  updateOrderStatus
-);
-
-// DELETE /api/orders/:id - Delete order
-router.delete('/:id', 
-  auth, 
-  mongoIdValidation, 
-  validation, 
-  deleteOrder
-);
-
-// GET /api/orders/client/:clientId - Get orders by client
-router.get('/client/:clientId', 
-  auth, 
-  clientIdValidation, 
-  validation, 
-  getOrdersByClient
-);
+router.post('/', auth, createOrderValidation, validate, createOrder);
+router.get('/', auth, getAllOrders);
+router.get('/:id', auth, mongoIdValidation, validate, getOrderById);
 
 module.exports = router;

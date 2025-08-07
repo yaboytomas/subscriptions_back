@@ -373,14 +373,3 @@ exports.getOrderStats = async (req, res) => {
     });
   }
 };
-
-module.exports = {
-  createOrder: exports.createOrder,
-  getAllOrders: exports.getAllOrders,
-  getOrderById: exports.getOrderById,
-  updateOrder: exports.updateOrder,
-  deleteOrder: exports.deleteOrder,
-  getOrdersByClient: exports.getOrdersByClient,
-  updateOrderStatus: exports.updateOrderStatus,
-  getOrderStats: exports.getOrderStats
-};
